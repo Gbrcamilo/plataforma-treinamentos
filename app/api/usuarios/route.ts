@@ -1,76 +1,74 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
+import { neon } from '@neondatabase/serverless'
 import bcrypt from 'bcryptjs'
-import { getSession, requireRole } from '@/lib/auth'
-import { UsuarioCreateSchema } from '@/lib/validators'
-import { ok, err, unauthorized, forbidden } from '@/lib/response'
-import sql from '@/lib/db'
 
-export async function GET(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return unauthorized()
-  if (!requireRole(session, ['admin', 'gestor'])) return forbidden()
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'hds-secret-key-2026')
 
-  const { searchParams } = new URL(req.url)
-  const busca = searchParams.get('busca') || ''
-  const perfil = searchParams.get('perfil') || ''
-  const setor_id = searchParams.get('setor_id')
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  const limit = 20
-  const offset = (page - 1) * limit
-
-  let whereClause = 'WHERE 1=1'
-  const params: any[] = []
-
-  // Gestor só vê sua equipe
-  if (session.perfil === 'gestor' && session.setor_id) {
-    whereClause += ` AND u.setor_id = ${session.setor_id}`
-  } else if (setor_id) {
-    whereClause += ` AND u.setor_id = ${parseInt(setor_id)}`
+async function getUser(request: NextRequest) {
+  const token = request.cookies.get('hds-token')?.value
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, secret)
+    return payload
+  } catch {
+    return null
   }
-
-  const users = await sql`
-    SELECT
-      u.id, u.nome, u.email, u.perfil, u.cargo, u.ativo,
-      u.criado_em, s.nome as setor,
-      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'concluido') as concluidos,
-      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'em_andamento') as em_andamento,
-      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'nao_iniciado') as pendentes
-    FROM usuarios u
-    LEFT JOIN setores s ON s.id = u.setor_id
-    LEFT JOIN progressos p ON p.usuario_id = u.id
-    WHERE
-      (${ session.perfil === 'gestor' && session.setor_id ? session.setor_id : null } IS NULL OR u.setor_id = ${ session.perfil === 'gestor' ? session.setor_id : null })
-      AND (${busca} = '' OR u.nome ILIKE ${'%' + busca + '%'} OR u.email ILIKE ${'%' + busca + '%'})
-      AND (${perfil} = '' OR u.perfil = ${perfil})
-    GROUP BY u.id, s.nome
-    ORDER BY u.nome
-    LIMIT ${limit} OFFSET ${offset}
-  `
-
-  return ok(users)
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return unauthorized()
-  if (!requireRole(session, ['admin'])) return forbidden()
+// GET /api/usuarios — admin e gestor
+export async function GET(request: NextRequest) {
+  const user = await getUser(request)
+  if (!user || user.perfil === 'colaborador') {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
 
-  const body = await req.json()
-  const parsed = UsuarioCreateSchema.safeParse(body)
-  if (!parsed.success) return err(parsed.error.errors[0].message)
+  const sql = neon(process.env.DATABASE_URL!)
+  const { searchParams } = new URL(request.url)
+  const area = searchParams.get('area')
+  const perfil = searchParams.get('perfil')
+  const busca = searchParams.get('busca')
 
-  const { nome, email, senha, perfil, cargo, setor_id } = parsed.data
+  const usuarios = await sql`
+    SELECT id, nome, email, perfil, area, cargo, ativo, ultimo_acesso, criado_em
+    FROM usuarios
+    WHERE (${area}::text IS NULL OR area = ${area})
+      AND (${perfil}::text IS NULL OR perfil = ${perfil})
+      AND (${busca}::text IS NULL OR nome ILIKE ${'%' + (busca || '') + '%'})
+    ORDER BY nome
+  `
 
-  const existe = await sql`SELECT id FROM usuarios WHERE email = ${email} LIMIT 1`
-  if (existe.length > 0) return err('E-mail já cadastrado', 409)
+  return NextResponse.json({ usuarios })
+}
+
+// POST /api/usuarios — cria usuário (admin)
+export async function POST(request: NextRequest) {
+  const user = await getUser(request)
+  if (!user || user.perfil !== 'admin') {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
+
+  const body = await request.json()
+  const { nome, email, senha, perfil, area, cargo } = body
+
+  if (!nome || !email || !senha) {
+    return NextResponse.json({ error: 'Nome, e-mail e senha são obrigatórios' }, { status: 400 })
+  }
+
+  const sql = neon(process.env.DATABASE_URL!)
+
+  const existing = await sql`SELECT id FROM usuarios WHERE email = ${email}`
+  if (existing.length > 0) {
+    return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
+  }
 
   const senha_hash = await bcrypt.hash(senha, 12)
 
-  const novo = await sql`
-    INSERT INTO usuarios (nome, email, senha_hash, perfil, cargo, setor_id)
-    VALUES (${nome}, ${email}, ${senha_hash}, ${perfil}, ${cargo || null}, ${setor_id || null})
-    RETURNING id, nome, email, perfil, cargo, ativo, criado_em
+  const [novoUsuario] = await sql`
+    INSERT INTO usuarios (nome, email, senha_hash, perfil, area, cargo)
+    VALUES (${nome}, ${email}, ${senha_hash}, ${perfil || 'colaborador'}, ${area}, ${cargo})
+    RETURNING id, nome, email, perfil, area, cargo, ativo, criado_em
   `
 
-  return ok(novo[0], 201)
+  return NextResponse.json({ usuario: novoUsuario }, { status: 201 })
 }

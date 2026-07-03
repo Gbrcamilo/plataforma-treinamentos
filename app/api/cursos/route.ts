@@ -1,57 +1,81 @@
-import { NextRequest } from 'next/server'
-import { getSession, requireRole } from '@/lib/auth'
-import { CursoSchema } from '@/lib/validators'
-import { ok, err, unauthorized, forbidden } from '@/lib/response'
-import sql from '@/lib/db'
+import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
+import { neon } from '@neondatabase/serverless'
 
-export async function GET(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return unauthorized()
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'hds-secret-key-2026')
 
-  const { searchParams } = new URL(req.url)
-  const busca = searchParams.get('busca') || ''
-  const categoria = searchParams.get('categoria') || ''
-  const obrigatorio = searchParams.get('obrigatorio')
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
-  const limit = 20
-  const offset = (page - 1) * limit
-
-  const cursos = await sql`
-    SELECT
-      c.id, c.titulo, c.descricao, c.categoria, c.carga_horaria,
-      c.obrigatorio, c.prazo_dias, c.ativo, c.criado_em,
-      COUNT(DISTINCT p.id) as total_inscritos,
-      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'concluido') as total_concluidos
-    FROM cursos c
-    LEFT JOIN progressos p ON p.curso_id = c.id
-    WHERE
-      c.ativo = true
-      AND (${busca} = '' OR c.titulo ILIKE ${'%' + busca + '%'})
-      AND (${categoria} = '' OR c.categoria = ${categoria})
-      AND (${obrigatorio} IS NULL OR c.obrigatorio = ${obrigatorio === 'true'})
-    GROUP BY c.id
-    ORDER BY c.obrigatorio DESC, c.titulo
-    LIMIT ${limit} OFFSET ${offset}
-  `
-
-  return ok(cursos)
+async function getUser(request: NextRequest) {
+  const token = request.cookies.get('hds-token')?.value
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, secret)
+    return payload
+  } catch {
+    return null
+  }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return unauthorized()
-  if (!requireRole(session, ['admin'])) return forbidden()
+// GET /api/cursos — lista cursos (admin vê todos, colaborador vê por perfil)
+export async function GET(request: NextRequest) {
+  const user = await getUser(request)
+  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-  const body = await req.json()
-  const parsed = CursoSchema.safeParse(body)
-  if (!parsed.success) return err(parsed.error.errors[0].message)
+  const sql = neon(process.env.DATABASE_URL!)
+  const { searchParams } = new URL(request.url)
+  const categoria = searchParams.get('categoria')
+  const busca = searchParams.get('busca')
 
-  const { titulo, descricao, categoria, carga_horaria, obrigatorio, prazo_dias, ativo } = parsed.data
+  let cursos
+  if (user.perfil === 'admin') {
+    cursos = await sql`
+      SELECT c.*, u.nome as criado_por_nome,
+             COUNT(DISTINCT m.id) as total_matriculas
+      FROM cursos c
+      LEFT JOIN usuarios u ON c.criado_por = u.id
+      LEFT JOIN matriculas m ON c.id = m.curso_id
+      WHERE (${categoria}::text IS NULL OR c.categoria = ${categoria})
+        AND (${busca}::text IS NULL OR c.titulo ILIKE ${'%' + (busca || '') + '%'})
+      GROUP BY c.id, u.nome
+      ORDER BY c.criado_em DESC
+    `
+  } else {
+    // colaborador/gestor só vê cursos publicados
+    cursos = await sql`
+      SELECT c.id, c.titulo, c.descricao, c.categoria, c.carga_horaria,
+             c.nivel, c.thumbnail_url, c.obrigatorio,
+             m.status as meu_status, m.progresso as meu_progresso
+      FROM cursos c
+      LEFT JOIN matriculas m ON c.id = m.curso_id AND m.usuario_id = ${user.sub}
+      WHERE c.publicado = true
+        AND (${categoria}::text IS NULL OR c.categoria = ${categoria})
+        AND (${busca}::text IS NULL OR c.titulo ILIKE ${'%' + (busca || '') + '%'})
+      ORDER BY c.obrigatorio DESC, c.criado_em DESC
+    `
+  }
 
-  const novo = await sql`
-    INSERT INTO cursos (titulo, descricao, categoria, carga_horaria, obrigatorio, prazo_dias, ativo)
-    VALUES (${titulo}, ${descricao || null}, ${categoria}, ${carga_horaria}, ${obrigatorio}, ${prazo_dias || null}, ${ativo})
+  return NextResponse.json({ cursos })
+}
+
+// POST /api/cursos — cria curso (admin)
+export async function POST(request: NextRequest) {
+  const user = await getUser(request)
+  if (!user || user.perfil !== 'admin') {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
+
+  const body = await request.json()
+  const { titulo, descricao, categoria, carga_horaria, nivel, obrigatorio, thumbnail_url } = body
+
+  if (!titulo || !categoria) {
+    return NextResponse.json({ error: 'Título e categoria são obrigatórios' }, { status: 400 })
+  }
+
+  const sql = neon(process.env.DATABASE_URL!)
+  const [curso] = await sql`
+    INSERT INTO cursos (titulo, descricao, categoria, carga_horaria, nivel, obrigatorio, thumbnail_url, criado_por)
+    VALUES (${titulo}, ${descricao}, ${categoria}, ${carga_horaria || 0}, ${nivel || 'basico'}, ${obrigatorio || false}, ${thumbnail_url}, ${user.sub})
     RETURNING *
   `
-  return ok(novo[0], 201)
+
+  return NextResponse.json({ curso }, { status: 201 })
 }

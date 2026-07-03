@@ -1,61 +1,74 @@
-import { NextRequest } from 'next/server'
-import { getSession, requireRole } from '@/lib/auth'
-import { CursoSchema } from '@/lib/validators'
-import { ok, err, unauthorized, forbidden, notFound } from '@/lib/response'
-import sql from '@/lib/db'
+import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
+import { neon } from '@neondatabase/serverless'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getSession()
-  if (!session) return unauthorized()
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'hds-secret-key-2026')
 
-  const id = parseInt(params.id)
-  const rows = await sql`
+async function getUser(request: NextRequest) {
+  const token = request.cookies.get('hds-token')?.value
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, secret)
+    return payload
+  } catch {
+    return null
+  }
+}
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUser(request)
+  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+  const sql = neon(process.env.DATABASE_URL!)
+  const [curso] = await sql`
     SELECT c.*,
-      COUNT(DISTINCT p.id) as total_inscritos,
-      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'concluido') as total_concluidos,
-      ROUND(AVG(p.nota) FILTER (WHERE p.nota IS NOT NULL), 1) as media_nota
+           json_agg(json_build_object(
+             'id', a.id, 'titulo', a.titulo, 'tipo', a.tipo,
+             'duracao_minutos', a.duracao_minutos, 'ordem', a.ordem
+           ) ORDER BY a.ordem) as aulas
     FROM cursos c
-    LEFT JOIN progressos p ON p.curso_id = c.id
-    WHERE c.id = ${id}
+    LEFT JOIN aulas a ON c.id = a.curso_id
+    WHERE c.id = ${params.id}
     GROUP BY c.id
   `
-  if (!rows[0]) return notFound('Curso')
-  return ok(rows[0])
+
+  if (!curso) return NextResponse.json({ error: 'Curso não encontrado' }, { status: 404 })
+  return NextResponse.json({ curso })
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getSession()
-  if (!session) return unauthorized()
-  if (!requireRole(session, ['admin'])) return forbidden()
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUser(request)
+  if (!user || user.perfil !== 'admin') {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
 
-  const id = parseInt(params.id)
-  const body = await req.json()
-  const parsed = CursoSchema.partial().safeParse(body)
-  if (!parsed.success) return err(parsed.error.errors[0].message)
+  const body = await request.json()
+  const sql = neon(process.env.DATABASE_URL!)
 
-  const d = parsed.data as any
-  const updated = await sql`
+  const [curso] = await sql`
     UPDATE cursos SET
-      titulo        = COALESCE(${d.titulo ?? null}, titulo),
-      descricao     = COALESCE(${d.descricao ?? null}, descricao),
-      categoria     = COALESCE(${d.categoria ?? null}, categoria),
-      carga_horaria = COALESCE(${d.carga_horaria ?? null}, carga_horaria),
-      obrigatorio   = COALESCE(${d.obrigatorio ?? null}, obrigatorio),
-      prazo_dias    = COALESCE(${d.prazo_dias ?? null}, prazo_dias),
-      ativo         = COALESCE(${d.ativo ?? null}, ativo),
+      titulo = COALESCE(${body.titulo}, titulo),
+      descricao = COALESCE(${body.descricao}, descricao),
+      categoria = COALESCE(${body.categoria}, categoria),
+      carga_horaria = COALESCE(${body.carga_horaria}, carga_horaria),
+      nivel = COALESCE(${body.nivel}, nivel),
+      obrigatorio = COALESCE(${body.obrigatorio}, obrigatorio),
+      publicado = COALESCE(${body.publicado}, publicado),
       atualizado_em = NOW()
-    WHERE id = ${id}
+    WHERE id = ${params.id}
     RETURNING *
   `
-  if (!updated[0]) return notFound('Curso')
-  return ok(updated[0])
+
+  return NextResponse.json({ curso })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getSession()
-  if (!session) return unauthorized()
-  if (!requireRole(session, ['admin'])) return forbidden()
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUser(request)
+  if (!user || user.perfil !== 'admin') {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
 
-  await sql`UPDATE cursos SET ativo = false WHERE id = ${parseInt(params.id)}`
-  return ok({ message: 'Curso desativado' })
+  const sql = neon(process.env.DATABASE_URL!)
+  await sql`DELETE FROM cursos WHERE id = ${params.id}`
+  return NextResponse.json({ success: true })
 }
