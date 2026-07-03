@@ -1,5 +1,4 @@
 // lib/auth.ts
-// Utilitários de autenticação com JWT
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 
@@ -8,10 +7,11 @@ const SECRET = new TextEncoder().encode(
 );
 
 export type JWTPayload = {
-  sub: string;       // user id
+  sub: string;
   email: string;
   perfil: 'admin' | 'gestor' | 'colaborador';
   nome: string;
+  org_id: string;
 };
 
 export async function signToken(payload: JWTPayload): Promise<string> {
