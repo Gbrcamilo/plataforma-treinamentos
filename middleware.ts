@@ -1,65 +1,65 @@
-// middleware.ts
-// Proteção de rotas por perfil
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyToken } from './lib/auth'
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'dev-secret-troque-em-producao-minimo-32-chars'
-);
+const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/logout']
 
-// Rotas públicas (não precisam de autenticação)
-const PUBLIC_ROUTES = ['/', '/login', '/api/auth/login', '/api/auth/logout'];
-
-// Rotas por perfil
-const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/admin': ['admin'],
-  '/gestor': ['admin', 'gestor'],
+const ROLE_PATHS: Record<string, string[]> = {
+  '/admin':       ['admin'],
+  '/gestor':      ['admin', 'gestor'],
   '/colaborador': ['admin', 'gestor', 'colaborador'],
-  '/api/admin': ['admin'],
-  '/api/gestor': ['admin', 'gestor'],
-  '/api/colaborador': ['admin', 'gestor', 'colaborador'],
-};
+}
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
 
-  // Libera rotas públicas
-  if (PUBLIC_ROUTES.some(r => pathname.startsWith(r))) {
-    return NextResponse.next();
+  // Rotas públicas — deixa passar
+  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
+    return NextResponse.next()
   }
 
-  // Verifica token
-  const token = request.cookies.get('auth_token')?.value;
+  // Arquivos estáticos
+  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
+    return NextResponse.next()
+  }
+
+  // Raiz redireciona para login
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  const token = req.cookies.get('token')?.value
+
   if (!token) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  try {
-    const { payload } = await jwtVerify(token, SECRET);
-    const perfil = payload.perfil as string;
+  const session = await verifyToken(token)
 
-    // Verifica permissão por rota
-    for (const [route, perfisPermitidos] of Object.entries(ROUTE_PERMISSIONS)) {
-      if (pathname.startsWith(route) && !perfisPermitidos.includes(perfil)) {
-        return NextResponse.redirect(new URL('/sem-permissao', request.url));
+  if (!session) {
+    const res = NextResponse.redirect(new URL('/login', req.url))
+    res.cookies.set('token', '', { maxAge: 0, path: '/' })
+    return res
+  }
+
+  // Verificar permissão de rota
+  for (const [path, roles] of Object.entries(ROLE_PATHS)) {
+    if (pathname.startsWith(path)) {
+      if (!roles.includes(session.perfil)) {
+        return NextResponse.redirect(new URL('/sem-permissao', req.url))
       }
+      break
     }
-
-    // Injeta dados do usuário no header para as API Routes
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', payload.sub as string);
-    requestHeaders.set('x-user-perfil', perfil);
-    requestHeaders.set('x-user-email', payload.email as string);
-
-    return NextResponse.next({ request: { headers: requestHeaders } });
-  } catch {
-    return NextResponse.redirect(new URL('/login', request.url));
   }
+
+  // Injetar dados do usuário nos headers para uso nos layouts
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set('x-user-id',    String(session.id))
+  requestHeaders.set('x-user-nome',  session.nome)
+  requestHeaders.set('x-user-perfil',session.perfil)
+
+  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\.png|.*\.jpg|.*\.svg).*)',
-  ],
-};
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}

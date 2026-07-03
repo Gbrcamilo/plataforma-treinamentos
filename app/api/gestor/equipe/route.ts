@@ -1,40 +1,37 @@
-// app/api/gestor/equipe/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { getSession, requireRole } from '@/lib/auth'
+import { ok, unauthorized, forbidden } from '@/lib/response'
+import sql from '@/lib/db'
 
-export async function GET(request: NextRequest) {
-  const perfil = request.headers.get('x-user-perfil');
-  const gestorId = request.headers.get('x-user-id');
+export async function GET() {
+  const session = await getSession()
+  if (!session) return unauthorized()
+  if (!requireRole(session, ['admin', 'gestor'])) return forbidden()
 
-  if (!['admin', 'gestor'].includes(perfil || '')) {
-    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
-  }
+  const setor_id = session.perfil === 'gestor' ? session.setor_id : null
 
-  try {
-    const equipe = await sql`
-      SELECT
-        u.id, u.nome, u.email, u.status,
-        a.nome as area,
-        c.nome as cargo,
-        COUNT(m.id) FILTER (WHERE m.status = 'pendente') as pendentes,
-        COUNT(m.id) FILTER (WHERE m.status = 'em_andamento') as em_andamento,
-        COUNT(m.id) FILTER (WHERE m.status = 'concluido') as concluidos,
-        COUNT(m.id) FILTER (
-          WHERE m.status IN ('pendente','em_andamento')
-          AND m.prazo_conclusao < NOW() + INTERVAL '7 days'
-        ) as vencendo_7_dias
-      FROM usuarios u
-      LEFT JOIN areas a ON u.area_id = a.id
-      LEFT JOIN cargos c ON u.cargo_id = c.id
-      LEFT JOIN matriculas m ON u.id = m.usuario_id
-      WHERE u.gestor_id = ${gestorId} AND u.status = 'ativo'
-      GROUP BY u.id, u.nome, u.email, u.status, a.nome, c.nome
-      ORDER BY u.nome
-    `;
-
-    return NextResponse.json({ equipe });
-  } catch (err) {
-    console.error('[GESTOR EQUIPE]', err);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
-  }
+  const equipe = await sql`
+    SELECT
+      u.id, u.nome, u.cargo, u.email,
+      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'concluido')    as concluidos,
+      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'em_andamento') as em_andamento,
+      COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'nao_iniciado') as pendentes,
+      COUNT(DISTINCT cert.id) as certificados,
+      CASE
+        WHEN COUNT(DISTINCT p.id) FILTER (WHERE p.status != 'concluido' AND c.obrigatorio = true) > 0
+          AND MAX(EXTRACT(DAY FROM NOW() - p.atualizado_em)) > 14 THEN 'critico'
+        WHEN COUNT(DISTINCT p.id) FILTER (WHERE c.obrigatorio = true AND p.status != 'concluido') > 0
+          THEN 'atencao'
+        ELSE 'em_dia'
+      END as status_conformidade
+    FROM usuarios u
+    LEFT JOIN progressos p ON p.usuario_id = u.id
+    LEFT JOIN cursos c ON c.id = p.curso_id
+    LEFT JOIN certificados cert ON cert.usuario_id = u.id
+    WHERE u.perfil = 'colaborador'
+      AND u.ativo = true
+      AND (${setor_id} IS NULL OR u.setor_id = ${setor_id})
+    GROUP BY u.id
+    ORDER BY u.nome
+  `
+  return ok(equipe)
 }

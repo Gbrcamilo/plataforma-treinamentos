@@ -1,36 +1,43 @@
-// lib/auth.ts
-import { SignJWT, jwtVerify } from 'jose';
-import bcrypt from 'bcryptjs';
+import { SignJWT, jwtVerify } from 'jose'
+import { cookies } from 'next/headers'
 
 const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'dev-secret-troque-em-producao-minimo-32-chars'
-);
+  process.env.JWT_SECRET || 'plataforma-treinamentos-secret-key-2026'
+)
 
 export type JWTPayload = {
-  sub: string;
-  email: string;
-  perfil: 'admin' | 'gestor' | 'colaborador';
-  nome: string;
-  org_id: string;
-};
+  id: number
+  nome: string
+  email: string
+  perfil: 'admin' | 'gestor' | 'colaborador'
+  setor_id?: number
+}
 
 export async function signToken(payload: JWTPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('8h')
-    .sign(SECRET);
+    .sign(SECRET)
 }
 
-export async function verifyToken(token: string): Promise<JWTPayload> {
-  const { payload } = await jwtVerify(token, SECRET);
-  return payload as unknown as JWTPayload;
+export async function verifyToken(token: string): Promise<JWTPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, SECRET)
+    return payload as unknown as JWTPayload
+  } catch {
+    return null
+  }
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+export async function getSession(): Promise<JWTPayload | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('token')?.value
+  if (!token) return null
+  return verifyToken(token)
 }
 
-export async function comparePassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+export function requireRole(session: JWTPayload | null, roles: string[]): boolean {
+  if (!session) return false
+  return roles.includes(session.perfil)
 }

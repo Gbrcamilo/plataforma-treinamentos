@@ -1,122 +1,104 @@
-# Setup da Plataforma de Treinamentos
+# Plataforma de Treinamentos — Setup
 
 ## Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Banco de dados**: Neon PostgreSQL (gratuito)
-- **Hospedagem**: Vercel (gratuito)
-- **Auth**: JWT com jose + bcryptjs
-- **Linguagem**: TypeScript
+- **Frontend/Backend**: Next.js 14 (App Router)
+- **Banco de dados**: PostgreSQL via [Neon](https://neon.tech) (serverless)
+- **Autenticação**: JWT com `jose` + cookie `httpOnly`
+- **Validação**: Zod
+- **Criptografia**: bcryptjs (12 rounds)
 
 ---
 
-## 1. Banco de dados — Neon (gratuito)
+## 1. Clonar e instalar
 
-1. Acesse [https://neon.tech](https://neon.tech) e crie uma conta gratuita
-2. Crie um novo projeto: `plataforma-treinamentos`
-3. Copie a **Connection String** (formato: `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`)
-4. Execute o schema no painel SQL do Neon:
-   - Abra o **SQL Editor** no Neon
-   - Cole e execute o conteúdo de `database/schema.sql`
-   - Cole e execute o conteúdo de `database/seed.sql`
+```bash
+git clone https://github.com/Gbrcamilo/plataforma-treinamentos.git
+cd plataforma-treinamentos
+npm install
+```
 
 ---
 
 ## 2. Variáveis de ambiente
 
-Crie o arquivo `.env.local` na raiz do projeto:
+Copie `.env.example` para `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+Edite `.env.local`:
 
 ```env
-DATABASE_URL="sua-connection-string-do-neon"
-JWT_SECRET="uma-chave-secreta-longa-e-aleatoria-minimo-32-chars"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+DATABASE_URL=postgresql://user:password@ep-xxx.neon.tech/neondb?sslmode=require
+JWT_SECRET=sua-chave-secreta-super-segura-aqui
+NODE_ENV=development
 ```
 
 ---
 
-## 3. Rodar localmente
+## 3. Criar banco de dados (Neon)
+
+1. Acesse [neon.tech](https://neon.tech) e crie um projeto gratuito
+2. Copie a connection string para `DATABASE_URL`
+3. Execute o schema:
 
 ```bash
-npm install
+# Via psql
+psql $DATABASE_URL -f database/schema.sql
+
+# Depois o seed de dados de teste
+psql $DATABASE_URL -f database/seed.sql
+```
+
+---
+
+## 4. Rodar localmente
+
+```bash
 npm run dev
 ```
 
-Acesse: http://localhost:3000
+Acesse: http://localhost:3000/login
 
-**Login padrão (admin)**:
-- E-mail: `admin@treinamentos.com`
-- Senha: `Admin@123`
-
----
-
-## 4. Deploy no Vercel
-
-### Opção A — Via interface (mais fácil)
-1. Acesse [https://vercel.com](https://vercel.com)
-2. Clique em **Add New Project**
-3. Importe o repositório `Gbrcamilo/plataforma-treinamentos`
-4. Em **Environment Variables**, adicione:
-   - `DATABASE_URL` → sua connection string do Neon
-   - `JWT_SECRET` → sua chave secreta
-5. Clique em **Deploy**
-
-### Opção B — Via Vercel CLI
-```bash
-npm i -g vercel
-vercel login
-vercel --prod
-```
-
-### Integração Neon ↔ Vercel (recomendado)
-- No painel do Vercel → **Storage** → **Connect Database** → selecione **Neon**
-- O `DATABASE_URL` é configurado automaticamente
-
----
-
-## 5. Estrutura de pastas
-
-```
-plataforma-treinamentos/
-├── app/
-│   ├── api/
-│   │   ├── auth/login/      → POST login
-│   │   ├── auth/logout/     → POST logout
-│   │   ├── admin/dashboard/ → GET indicadores admin
-│   │   ├── gestor/equipe/   → GET equipe do gestor
-│   │   ├── colaborador/dashboard/ → GET dashboard colaborador
-│   │   └── cursos/          → GET lista de cursos
-│   ├── admin/               → Páginas do administrador
-│   ├── gestor/              → Páginas do gestor
-│   ├── colaborador/         → Páginas do colaborador
-│   └── login/               → Página de login
-├── lib/
-│   ├── db.ts                → Conexão Neon
-│   ├── auth.ts              → JWT + bcrypt
-│   └── types.ts             → Tipos TypeScript
-├── database/
-│   ├── schema.sql           → Schema completo do banco
-│   ├── seed.sql             → Dados iniciais
-│   └── migrate.js           → Script de migração
-├── middleware.ts             → Proteção de rotas por perfil
-├── vercel.json              → Config Vercel (região São Paulo)
-└── .env.example             → Exemplo de variáveis
-```
-
----
-
-## 6. Credenciais padrão após o seed
+### Credenciais de demo
 
 | Perfil | E-mail | Senha |
-|---|---|---|
-| Admin | admin@treinamentos.com | Admin@123 |
-
-> ⚠️ Troque a senha do admin logo após o primeiro acesso em produção.
+|--------|--------|-------|
+| Admin | admin@hospital.com | 123456 |
+| Gestor | gestor@hospital.com | 123456 |
+| Colaborador | colaborador@hospital.com | 123456 |
 
 ---
 
-## 7. Limites gratuitos
+## 5. Deploy (Vercel)
 
-| Serviço | Plano gratuito |
-|---|---|
-| **Neon** | 512 MB storage, 190 compute hours/mês |
-| **Vercel** | 100 GB bandwidth, deployments ilimitados |
+```bash
+npm i -g vercel
+vercel
+```
+
+Configurar variáveis no painel da Vercel:
+- `DATABASE_URL`
+- `JWT_SECRET`
+
+---
+
+## Arquitetura de APIs
+
+| Método | Rota | Acesso | Descrição |
+|--------|------|--------|-----------|
+| POST | `/api/auth/login` | Público | Autenticação com e-mail/senha |
+| POST | `/api/auth/logout` | Autenticado | Encerrar sessão |
+| GET | `/api/auth/me` | Autenticado | Dados do usuário logado |
+| GET/POST | `/api/usuarios` | Admin, Gestor | Listar / criar usuários |
+| GET/PATCH/DELETE | `/api/usuarios/[id]` | Admin, Gestor | Ler / editar / desativar |
+| GET/POST | `/api/cursos` | Autenticado / Admin | Listar / criar cursos |
+| GET/PATCH/DELETE | `/api/cursos/[id]` | Autenticado / Admin | Operações por curso |
+| GET/POST | `/api/trilhas` | Autenticado / Admin | Listar / criar trilhas |
+| GET/POST | `/api/progresso` | Autenticado | Consultar / salvar progresso |
+| GET | `/api/certificados` | Autenticado | Listar certificados |
+| GET | `/api/admin/dashboard` | Admin, Gestor | KPIs consolidados |
+| GET | `/api/gestor/equipe` | Admin, Gestor | Dados da equipe com conformidade |
+| GET | `/api/colaborador/meus-cursos` | Colaborador | Cursos do colaborador logado |

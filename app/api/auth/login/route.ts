@@ -1,66 +1,59 @@
-// app/api/auth/login/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
-import { signToken, comparePassword } from '@/lib/auth';
-import { z } from 'zod';
+import { NextRequest } from 'next/server'
+import bcrypt from 'bcryptjs'
+import { signToken } from '@/lib/auth'
+import { LoginSchema } from '@/lib/validators'
+import { ok, err } from '@/lib/response'
+import sql from '@/lib/db'
 
-const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'Senha deve ter ao menos 6 caracteres'),
-});
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = loginSchema.parse(body);
+    const body = await req.json()
+    const parsed = LoginSchema.safeParse(body)
+    if (!parsed.success) return err(parsed.error.errors[0].message)
+
+    const { email, senha } = parsed.data
 
     const users = await sql`
-      SELECT id, nome, email, senha_hash, perfil, status
-      FROM usuarios
-      WHERE email = ${email} AND status = 'ativo'
+      SELECT u.id, u.nome, u.email, u.senha_hash, u.perfil, u.setor_id, u.ativo
+      FROM usuarios u
+      WHERE u.email = ${email}
       LIMIT 1
-    `;
+    `
 
-    if (!users.length) {
-      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
-    }
+    const user = users[0] as any
+    if (!user) return err('Credenciais inválidas', 401)
+    if (!user.ativo) return err('Usuário inativo. Contate o administrador.', 403)
 
-    const user = users[0];
-    const valid = await comparePassword(password, user.senha_hash as string);
-
-    if (!valid) {
-      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
-    }
-
-    // Atualiza ultimo_acesso
-    await sql`UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = ${user.id}`;
+    const senhaOk = await bcrypt.compare(senha, user.senha_hash)
+    if (!senhaOk) return err('Credenciais inválidas', 401)
 
     const token = await signToken({
-      sub: user.id as string,
-      email: user.email as string,
-      perfil: user.perfil as 'admin' | 'gestor' | 'colaborador',
-      nome: user.nome as string,
-    });
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      setor_id: user.setor_id,
+    })
 
-    const response = NextResponse.json({
-      user: { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil },
-      redirect: `/${user.perfil}`,
-    });
+    const res = ok({
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      rota: `/${user.perfil}`,
+    })
 
-    response.cookies.set('auth_token', token, {
+    res.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 8, // 8 horas
+      maxAge: 60 * 60 * 8, // 8h
       path: '/',
-    });
+    })
 
-    return response;
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: err.errors[0].message }, { status: 400 });
-    }
-    console.error('[LOGIN]', err);
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    return res
+  } catch (e) {
+    console.error('[LOGIN]', e)
+    return err('Erro interno do servidor', 500)
   }
 }
