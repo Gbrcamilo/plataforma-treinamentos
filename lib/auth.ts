@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
 const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'plataforma-treinamentos-secret-key-2026'
+  process.env.JWT_SECRET || 'hds-secret-key-2026'
 )
 
 export type JWTPayload = {
@@ -10,7 +10,8 @@ export type JWTPayload = {
   nome: string
   email: string
   perfil: 'admin' | 'gestor' | 'colaborador'
-  setor_id?: number
+  area?: string
+  cargo?: string
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {
@@ -32,7 +33,8 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
 
 export async function getSession(): Promise<JWTPayload | null> {
   const cookieStore = await cookies()
-  const token = cookieStore.get('token')?.value
+  // Cookie unificado: hds-token
+  const token = cookieStore.get('hds-token')?.value
   if (!token) return null
   return verifyToken(token)
 }

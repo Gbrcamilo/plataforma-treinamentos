@@ -1,10 +1,30 @@
+'use client'
+import { useRouter } from 'next/navigation'
+
 export default function SemPermissao() {
+  const router = useRouter()
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '32px', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ fontSize: '4rem' }}>🔒</div>
-      <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Sem Permissão</h1>
-      <p style={{ color: '#6b6a65', maxWidth: '36ch', textAlign: 'center' }}>Você não tem acesso a esta área. Caso acredite que isso é um erro, entre em contato com o administrador.</p>
-      <a href="/login" style={{ marginTop: '8px', padding: '10px 24px', background: '#01696f', color: '#fff', borderRadius: '8px', fontWeight: 500, textDecoration: 'none' }}>← Voltar ao Login</a>
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#0f172a', fontFamily: 'Inter, sans-serif',
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: 420, padding: '0 24px' }}>
+        <div style={{ fontSize: 64, marginBottom: 24 }}>🚫</div>
+        <h1 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Acesso negado</h1>
+        <p style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
+          Você não tem permissão para acessar essa área. Entre em contato com o administrador.
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+          <button
+            onClick={() => router.back()}
+            style={{ padding: '10px 24px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >← Voltar</button>
+          <button
+            onClick={() => router.push('/login')}
+            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >Ir para Login</button>
+        </div>
+      </div>
     </div>
   )
 }
