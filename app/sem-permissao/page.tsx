@@ -1,30 +1,49 @@
 'use client'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function SemPermissao() {
-  const router = useRouter()
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#0f172a', fontFamily: 'Inter, sans-serif',
+      minHeight: '100dvh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--color-bg)',
+      padding: 'var(--space-8)',
+      textAlign: 'center',
     }}>
-      <div style={{ textAlign: 'center', maxWidth: 420, padding: '0 24px' }}>
-        <div style={{ fontSize: 64, marginBottom: 24 }}>🚫</div>
-        <h1 style={{ color: 'white', fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Acesso negado</h1>
-        <p style={{ color: '#94a3b8', fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
-          Você não tem permissão para acessar essa área. Entre em contato com o administrador.
-        </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-          <button
-            onClick={() => router.back()}
-            style={{ padding: '10px 24px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >← Voltar</button>
-          <button
-            onClick={() => router.push('/login')}
-            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >Ir para Login</button>
-        </div>
-      </div>
+      <div style={{ fontSize: 72, marginBottom: 'var(--space-4)' }}>🔒</div>
+      <h1 style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 'var(--text-xl)',
+        fontWeight: 700,
+        marginBottom: 'var(--space-2)',
+        color: 'var(--color-text)',
+      }}>Acesso Negado</h1>
+      <p style={{
+        fontSize: 'var(--text-base)',
+        color: 'var(--color-text-muted)',
+        maxWidth: 400,
+        marginBottom: 'var(--space-8)',
+      }}>
+        Você não tem permissão para acessar esta página.
+        Entre em contato com o administrador se acreditar que isso é um erro.
+      </p>
+      <Link href="/login" style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+        background: 'var(--color-primary)',
+        color: '#fff',
+        padding: 'var(--space-3) var(--space-6)',
+        borderRadius: 'var(--radius-md)',
+        fontWeight: 600,
+        fontSize: 'var(--text-sm)',
+        textDecoration: 'none',
+      }}>
+        ← Voltar ao Login
+      </Link>
     </div>
   )
 }

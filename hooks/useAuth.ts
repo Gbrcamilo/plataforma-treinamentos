@@ -1,47 +1,39 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 export interface AuthUser {
-  sub: string
-  email: string
+  id: number
   nome: string
+  email: string
   perfil: 'admin' | 'gestor' | 'colaborador'
-  area?: string
-  cargo?: string
+  area?: string | null
 }
 
-export function useAuth(requiredPerfil?: AuthUser['perfil'] | AuthUser['perfil'][]) {
-  const router = useRouter()
+export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (!data) {
-          router.replace('/login')
-          return
-        }
-        const u = data.user as AuthUser
-        if (requiredPerfil) {
-          const allowed = Array.isArray(requiredPerfil) ? requiredPerfil : [requiredPerfil]
-          if (!allowed.includes(u.perfil)) {
-            router.replace(`/${u.perfil}`)
-            return
-          }
-        }
-        setUser(u)
-        setLoading(false)
+    fetch('/api/auth/me')
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Não autenticado')
+        return res.json()
       })
-      .catch(() => router.replace('/login'))
+      .then((data: AuthUser) => {
+        setUser(data)
+      })
+      .catch((err) => {
+        setError(err.message)
+        window.location.href = '/login'
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  const logout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-    router.replace('/login')
-  }, [router])
+  const logout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
+  }
 
-  return { user, loading, logout }
+  return { user, loading, error, logout }
 }

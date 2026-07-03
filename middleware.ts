@@ -1,61 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from './lib/auth'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { jwtVerify } from 'jose'
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/logout', '/sobre']
+const PUBLIC_PATHS = ['/login', '/api/auth/login']
+const COOKIE_NAME = 'hds-token'
 
-const ROLE_PATHS: Record<string, string[]> = {
-  '/admin':       ['admin'],
-  '/gestor':      ['admin', 'gestor'],
-  '/colaborador': ['admin', 'gestor', 'colaborador'],
-}
-
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next()
   }
 
-  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon')) {
-    return NextResponse.next()
-  }
-
-  if (pathname === '/') {
-    return NextResponse.redirect(new URL('/login', req.url))
-  }
-
-  // Cookie unificado: hds-token
-  const token = req.cookies.get('hds-token')?.value
+  const token = request.cookies.get(COOKIE_NAME)?.value
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login', req.url))
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const session = await verifyToken(token)
+  try {
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || 'hds-secret-2026'
+    )
+    const { payload } = await jwtVerify(token, secret)
+    const perfil = payload.perfil as string
 
-  if (!session) {
-    const res = NextResponse.redirect(new URL('/login', req.url))
-    res.cookies.set('hds-token', '', { maxAge: 0, path: '/' })
-    return res
-  }
-
-  for (const [path, roles] of Object.entries(ROLE_PATHS)) {
-    if (pathname.startsWith(path)) {
-      if (!roles.includes(session.perfil)) {
-        return NextResponse.redirect(new URL('/sem-permissao', req.url))
-      }
-      break
+    // Proteção por perfil
+    if (pathname.startsWith('/admin') && perfil !== 'admin') {
+      return NextResponse.redirect(new URL('/sem-permissao', request.url))
     }
+    if (pathname.startsWith('/gestor') && !['admin', 'gestor'].includes(perfil)) {
+      return NextResponse.redirect(new URL('/sem-permissao', request.url))
+    }
+
+    return NextResponse.next()
+  } catch {
+    const response = NextResponse.redirect(new URL('/login', request.url))
+    response.cookies.delete(COOKIE_NAME)
+    return response
   }
-
-  const requestHeaders = new Headers(req.headers)
-  requestHeaders.set('x-user-id',    String(session.id))
-  requestHeaders.set('x-user-nome',  session.nome)
-  requestHeaders.set('x-user-perfil',session.perfil)
-
-  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|api/auth/login).*)',
+  ],
 }

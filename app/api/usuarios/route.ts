@@ -1,74 +1,56 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { jwtVerify } from 'jose'
-import { neon } from '@neondatabase/serverless'
-import bcrypt from 'bcryptjs'
+import { NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
+import { query } from '@/lib/db'
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'hds-secret-key-2026')
+export async function GET() {
+  const session = await getSession()
+  if (!session || !['admin', 'gestor'].includes(session.perfil)) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
+  }
 
-async function getUser(request: NextRequest) {
-  const token = request.cookies.get('hds-token')?.value
-  if (!token) return null
   try {
-    const { payload } = await jwtVerify(token, secret)
-    return payload
-  } catch {
-    return null
+    const result = await query(
+      `SELECT u.id, u.nome, u.email, u.perfil, u.area, u.status,
+              u.created_at,
+              COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'concluido') AS cursos_concluidos,
+              MAX(al.created_at) AS ultimo_acesso
+       FROM usuarios u
+       LEFT JOIN matriculas m ON m.usuario_id = u.id
+       LEFT JOIN activity_log al ON al.usuario_id = u.id
+       ${session.perfil === 'gestor' ? 'WHERE u.area = $1' : ''}
+       GROUP BY u.id
+       ORDER BY u.nome`,
+      session.perfil === 'gestor' ? [session.area] : []
+    )
+    return NextResponse.json(result.rows)
+  } catch (err) {
+    console.error(err)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
 
-// GET /api/usuarios — admin e gestor
-export async function GET(request: NextRequest) {
-  const user = await getUser(request)
-  if (!user || user.perfil === 'colaborador') {
-    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+export async function POST(request: Request) {
+  const session = await getSession()
+  if (!session || session.perfil !== 'admin') {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
   }
 
-  const sql = neon(process.env.DATABASE_URL!)
-  const { searchParams } = new URL(request.url)
-  const area = searchParams.get('area')
-  const perfil = searchParams.get('perfil')
-  const busca = searchParams.get('busca')
+  try {
+    const body = await request.json()
+    const { nome, email, perfil, area, senha } = body
 
-  const usuarios = await sql`
-    SELECT id, nome, email, perfil, area, cargo, ativo, ultimo_acesso, criado_em
-    FROM usuarios
-    WHERE (${area}::text IS NULL OR area = ${area})
-      AND (${perfil}::text IS NULL OR perfil = ${perfil})
-      AND (${busca}::text IS NULL OR nome ILIKE ${'%' + (busca || '') + '%'})
-    ORDER BY nome
-  `
+    const bcrypt = await import('bcryptjs')
+    const hash = await bcrypt.hash(senha || 'Mudar@123', 10)
 
-  return NextResponse.json({ usuarios })
-}
-
-// POST /api/usuarios — cria usuário (admin)
-export async function POST(request: NextRequest) {
-  const user = await getUser(request)
-  if (!user || user.perfil !== 'admin') {
-    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+    const result = await query(
+      `INSERT INTO usuarios (nome, email, perfil, area, senha_hash, status)
+       VALUES ($1, $2, $3, $4, $5, 'ativo')
+       RETURNING id, nome, email, perfil, area, status`,
+      [nome, email, perfil, area, hash]
+    )
+    return NextResponse.json(result.rows[0], { status: 201 })
+  } catch (err) {
+    console.error(err)
+    return NextResponse.json({ error: 'Erro ao criar usuário' }, { status: 500 })
   }
-
-  const body = await request.json()
-  const { nome, email, senha, perfil, area, cargo } = body
-
-  if (!nome || !email || !senha) {
-    return NextResponse.json({ error: 'Nome, e-mail e senha são obrigatórios' }, { status: 400 })
-  }
-
-  const sql = neon(process.env.DATABASE_URL!)
-
-  const existing = await sql`SELECT id FROM usuarios WHERE email = ${email}`
-  if (existing.length > 0) {
-    return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
-  }
-
-  const senha_hash = await bcrypt.hash(senha, 12)
-
-  const [novoUsuario] = await sql`
-    INSERT INTO usuarios (nome, email, senha_hash, perfil, area, cargo)
-    VALUES (${nome}, ${email}, ${senha_hash}, ${perfil || 'colaborador'}, ${area}, ${cargo})
-    RETURNING id, nome, email, perfil, area, cargo, ativo, criado_em
-  `
-
-  return NextResponse.json({ usuario: novoUsuario }, { status: 201 })
 }
