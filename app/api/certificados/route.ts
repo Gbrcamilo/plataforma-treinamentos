@@ -1,29 +1,38 @@
-import { NextRequest } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { ok, unauthorized } from '@/lib/response'
-import sql from '@/lib/db'
+import { NextRequest, NextResponse } from 'next/server'
+import { jwtVerify } from 'jose'
+import { neon } from '@neondatabase/serverless'
 
-export async function GET(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return unauthorized()
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'hds-secret-key-2026')
 
-  const { searchParams } = new URL(req.url)
-  const usuario_id = searchParams.get('usuario_id')
+async function getUser(request: NextRequest) {
+  const token = request.cookies.get('hds-token')?.value
+  if (!token) return null
+  try { const { payload } = await jwtVerify(token, secret); return payload } catch { return null }
+}
 
-  const uid = session.perfil === 'colaborador'
-    ? session.id
-    : parseInt(usuario_id || '0') || null
+export async function GET(request: NextRequest) {
+  const user = await getUser(request)
+  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+  const sql = neon(process.env.DATABASE_URL!)
+  const { searchParams } = new URL(request.url)
+  const usuarioId = searchParams.get('usuario_id')
+
+  const targetId = (user.perfil === 'admin' || user.perfil === 'gestor') && usuarioId ? usuarioId : user.sub
 
   const certs = await sql`
-    SELECT
-      cert.id, cert.codigo, cert.emitido_em, cert.validade_em, cert.carga_horaria,
-      u.nome as usuario_nome,
-      c.titulo as curso_titulo, c.categoria
-    FROM certificados cert
-    JOIN usuarios u ON u.id = cert.usuario_id
-    JOIN cursos c ON c.id = cert.curso_id
-    WHERE (${uid} IS NULL OR cert.usuario_id = ${uid})
-    ORDER BY cert.emitido_em DESC
+    SELECT m.id, m.usuario_id, m.curso_id, m.concluido_em,
+           c.titulo as curso_titulo, c.carga_horaria, c.categoria,
+           u.nome as usuario_nome, u.cargo, u.area,
+           CONCAT('CERT-', UPPER(SUBSTRING(MD5(CONCAT(m.usuario_id::text, m.curso_id::text)), 1, 8))) as codigo
+    FROM matriculas m
+    JOIN cursos c ON m.curso_id = c.id
+    JOIN usuarios u ON m.usuario_id = u.id
+    WHERE m.status = 'concluido'
+      AND m.usuario_id::text = ${targetId}
+      AND m.concluido_em IS NOT NULL
+    ORDER BY m.concluido_em DESC
   `
-  return ok(certs)
+
+  return NextResponse.json({ certificados: certs })
 }
