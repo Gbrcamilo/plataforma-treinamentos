@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plataforma de Treinamentos</title>
+  <meta name="description" content="Plataforma de treinamentos com áreas para administrador, gestor e colaborador, trilhas, indicadores e plano de execução por fases." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&f[]=cabinet-grotesk@400,500,700&display=swap" rel="stylesheet">
+  <style>
+    :root, [data-theme="light"] {
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+      --space-1: .25rem; --space-2: .5rem; --space-3: .75rem; --space-4: 1rem;
+      --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem;
+      --space-12: 3rem; --space-16: 4rem; --space-20: 5rem;
+      --color-bg: #f7f6f2;
+      --color-surface: #f9f8f5;
+      --color-surface-2: #fbfbf9;
+      --color-surface-offset: #edeae5;
+      --color-border: #d4d1ca;
+      --color-divider: #dcd9d5;
+      --color-text: #28251d;
+      --color-text-muted: #66655f;
+      --color-text-faint: #95938d;
+      --color-text-inverse: #f9f8f4;
+      --color-primary: #01696f;
+      --color-primary-hover: #0c4e54;
+      --color-blue: #006494;
+      --color-success: #437a22;
+      --color-warning: #964219;
+      --color-error: #a12c7b;
+      --radius-sm: .375rem; --radius-md: .75rem; --radius-lg: 1rem; --radius-xl: 1.25rem; --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px rgba(25,25,25,.05);
+      --shadow-md: 0 10px 30px rgba(25,25,25,.08);
+      --shadow-lg: 0 24px 60px rgba(25,25,25,.12);
+      --content-default: 1120px;
+      --font-body: 'Satoshi', 'Inter', sans-serif;
+      --font-display: 'Cabinet Grotesk', 'Inter', sans-serif;
+    }
+    [data-theme="dark"] {
+      --color-bg: #171614;
+      --color-surface: #1c1b19;
+      --color-surface-2: #201f1d;
+      --color-surface-offset: #262421;
+      --color-border: #393836;
+      --color-divider: #2d2c2a;
+      --color-text: #e5e2dc;
+      --color-text-muted: #b1aea8;
+      --color-text-faint: #7d7a74;
+      --color-text-inverse: #171614;
+      --color-primary: #4f98a3;
+      --color-primary-hover: #69adb7;
+      --color-blue: #6ca7d6;
+      --color-success: #88c066;
+      --color-warning: #ce875b;
+      --color-error: #d77fba;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.25);
+      --shadow-md: 0 10px 30px rgba(0,0,0,.32);
+      --shadow-lg: 0 24px 60px rgba(0,0,0,.45);
+    }
+    *,:before,:after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+    body{font-family:var(--font-body);background:var(--color-bg);color:var(--color-text);font-size:var(--text-base);line-height:1.6;min-height:100vh}
+    img,svg{display:block;max-width:100%}
+    button,a,input,select,textarea{font:inherit;color:inherit}
+    a{text-decoration:none;color:inherit}
+    .container{width:min(calc(100% - 2rem), var(--content-default));margin-inline:auto}
+    .skip-link{position:absolute;left:-9999px;top:auto}.skip-link:focus{left:1rem;top:1rem;background:var(--color-primary);color:var(--color-text-inverse);padding:.75rem 1rem;border-radius:var(--radius-md);z-index:999}
+    .site-header{position:sticky;top:0;z-index:20;background:color-mix(in srgb, var(--color-bg) 88%, transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--color-divider)}
+    .header-row{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:var(--space-4) 0}
+    .brand{display:flex;align-items:center;gap:.9rem}
+    .brand-mark{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--color-primary),var(--color-blue));display:grid;place-items:center;color:white;box-shadow:var(--shadow-md)}
+    .brand-mark svg{width:24px;height:24px}
+    .brand h1{font-family:var(--font-display);font-size:var(--text-lg);line-height:1.1}
+    .brand p{font-size:var(--text-xs);color:var(--color-text-muted)}
+    .header-actions{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+    .nav-pills{display:flex;gap:.5rem;flex-wrap:wrap}
+    .nav-pills a,.theme-toggle,.btn{border:1px solid var(--color-border);background:var(--color-surface);padding:.75rem 1rem;border-radius:var(--radius-full);transition:.2s ease;cursor:pointer;font-size:var(--text-sm)}
+    .nav-pills a:hover,.theme-toggle:hover,.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+    .btn-primary{background:var(--color-primary);color:var(--color-text-inverse);border-color:transparent}
+    .btn-primary:hover{background:var(--color-primary-hover)}
+    .hero{padding:var(--space-12) 0 var(--space-8)}
+    .hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:var(--space-8);align-items:start}
+    .eyebrow{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem .8rem;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-full);font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-4)}
+    .hero h2{font-family:var(--font-display);font-size:clamp(2.2rem, 1.8rem + 2vw, 4.2rem);line-height:1.02;max-width:12ch;margin-bottom:var(--space-4)}
+    .hero p{max-width:62ch;color:var(--color-text-muted);margin-bottom:var(--space-6)}
+    .hero-cta{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:var(--space-6)}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)}
+    .metric-card,.panel,.task-card,.role-card,.timeline-card,.feature-card,.step-card{background:var(--color-surface);border:1px solid color-mix(in srgb, var(--color-text) 10%, transparent);border-radius:var(--radius-xl);box-shadow:var(--shadow-sm)}
+    .metric-card{padding:var(--space-4)}
+    .metric-card strong{display:block;font-size:var(--text-xl);font-family:var(--font-display)}
+    .metric-card span{font-size:var(--text-sm);color:var(--color-text-muted)}
+    .hero-side{display:grid;gap:var(--space-4)}
+    .panel{padding:var(--space-5)}
+    .panel h3{font-size:var(--text-lg);margin-bottom:.75rem}
+    .panel p,.panel li{color:var(--color-text-muted)}
+    .panel ul{list-style:none;display:grid;gap:.75rem}
+    .section{padding:var(--space-8) 0}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap;margin-bottom:var(--space-6)}
+    .section-head h3{font-family:var(--font-display);font-size:var(--text-xl)}
+    .section-head p{max-width:60ch;color:var(--color-text-muted)}
+    .features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)}
+    .feature-card{padding:var(--space-5);display:grid;gap:1rem;min-height:220px}
+    .feature-icon{width:48px;height:48px;border-radius:14px;background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));display:grid;place-items:center;font-size:1.4rem}
+    .feature-card h4,.role-card h4,.task-card h4,.step-card h4,.timeline-card h4{font-size:1.05rem;font-weight:600}
+    .feature-card p,.role-card p,.task-card p,.step-card p,.timeline-card p{color:var(--color-text-muted);font-size:var(--text-sm)}
+    .roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)}
+    .role-card{padding:var(--space-5);display:grid;gap:1rem}
+    .badge{display:inline-flex;align-items:center;gap:.4rem;font-size:var(--text-xs);padding:.45rem .75rem;border-radius:var(--radius-full);width:max-content;border:1px solid var(--color-border);background:var(--color-surface-2);font-weight:500}
+    .role-card ul,.task-card ul,.step-card ul,.timeline-card ul{list-style:none;display:grid;gap:.75rem}
+    .role-card li,.task-card li,.step-card li,.timeline-card li{font-size:var(--text-sm);color:var(--color-text-muted);padding-left:1.2rem;position:relative}
+    .role-card li:before,.task-card li:before,.step-card li:before,.timeline-card li:before{content:'\2022';position:absolute;left:0;color:var(--color-primary)}
+    .journey{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+    .journey .panel{min-height:100%}
+    .timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)}
+    .timeline-card{padding:var(--space-5);display:grid;gap:.85rem;border-top:4px solid var(--color-primary)}
+    .tasks-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-4)}
+    .task-card{padding:var(--space-5);display:grid;gap:1rem}
+    .task-card .tag-row{display:flex;gap:.5rem;flex-wrap:wrap}
+    .tag{font-size:var(--text-xs);padding:.35rem .65rem;border-radius:var(--radius-full);background:var(--color-surface-offset);color:var(--color-text-muted)}
+    .admin-preview{display:grid;grid-template-columns:240px 1fr;gap:var(--space-4);padding:var(--space-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-md)}
+    .sidebar{background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:calc(var(--radius-xl) - var(--space-2));padding:var(--space-4)}
+    .sidebar ul{list-style:none;display:grid;gap:.5rem}
+    .sidebar li{padding:.8rem .9rem;border-radius:var(--radius-md);cursor:default;font-size:var(--text-sm)}
+    .sidebar li.active{background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));color:var(--color-primary);font-weight:700}
+    .dashboard{display:grid;gap:var(--space-4)}
+    .dash-top{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)}
+    .mini-card{padding:var(--space-4);background:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
+    .mini-card strong{display:block;font-family:var(--font-display);font-size:1.9rem;line-height:1;margin-bottom:.35rem}
+    .mini-card span{font-size:var(--text-sm);color:var(--color-text-muted)}
+    .dash-bottom{display:grid;grid-template-columns:1.1fr .9fr;gap:var(--space-4)}
+    .progress-list{display:grid;gap:1rem}
+    .progress-item{display:grid;gap:.45rem}
+    .progress-item span{font-size:var(--text-sm)}
+    .progress-track{height:10px;border-radius:999px;background:var(--color-surface-offset);overflow:hidden}
+    .progress-bar{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--color-primary),var(--color-blue))}
+    .steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)}
+    .step-card{padding:var(--space-5);display:grid;gap:1rem}
+    .step-number{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--color-primary);color:var(--color-text-inverse);font-weight:700;font-size:var(--text-base)}
+    .divider{border:none;border-top:1px solid var(--color-divider);margin:var(--space-2) 0}
+    .footer{padding:var(--space-8) 0 var(--space-12);color:var(--color-text-muted)}
+    .footer-box{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding-top:var(--space-6);border-top:1px solid var(--color-divider)}
+    button:focus-visible,a:focus-visible{outline:2px solid var(--color-primary);outline-offset:3px;border-radius:var(--radius-sm)}
+    @media(max-width:1100px){
+      .hero-grid,.journey,.dash-bottom,.admin-preview,.tasks-grid,.timeline,.features-grid,.roles-grid,.steps-grid,.dash-top{grid-template-columns:1fr 1fr}
+      .admin-preview{grid-template-columns:1fr}
+    }
+    @media(max-width:760px){
+      .hero-grid,.journey,.timeline,.tasks-grid,.features-grid,.roles-grid,.steps-grid,.metrics,.dash-top,.dash-bottom{grid-template-columns:1fr}
+      .nav-pills{display:none}
+      .hero h2{max-width:15ch}
+    }
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto;transition:none!important}}
+  </style>
+</head>
+<body>
+  <a href="#conteudo" style="position:absolute;left:-9999px;top:auto" onFocus="this.style.left='1rem'" onBlur="this.style.left='-9999px'">Pular para o conteúdo</a>
+
+  <header class="site-header">
+    <div class="container header-row">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M4 7.5 12 4l8 3.5-8 3.5L4 7.5Z"/>
+            <path d="M4 12.5 12 16l8-3.5"/>
+            <path d="M4 17 12 20l8-3"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Academia Corporativa</h1>
+          <p>Admin · Gestor · Colaborador</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <nav class="nav-pills" aria-label="Navegação">
+          <a href="#modulos">Módulos</a>
+          <a href="#perfis">Perfis</a>
+          <a href="#preview">Interface</a>
+          <a href="#backlog">Tarefas</a>
+          <a href="#fases">Fases</a>
+        </nav>
+        <button class="theme-toggle" data-theme-toggle aria-label="Alternar tema">&#x1F319;</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow">Referência em LMS corporativo, dashboard operacional e trilhas de capacitação.</span>
+          <h2>Plataforma de treinamentos para admin, gestor e colaborador.</h2>
+          <p>Solução web inspirada em sistemas de treinamento corporativo modernos: área administrativa completa, acompanhamento gerencial por equipe e jornada objetiva para o colaborador estudar, concluir trilhas e registrar progresso.</p>
+          <div class="hero-cta">
+            <a href="#backlog" class="btn btn-primary">Ver tarefas divididas</a>
+            <a href="#preview" class="btn">Ver prévia da interface</a>
+          </div>
+          <div class="metrics">
+            <article class="metric-card">
+              <strong>3</strong>
+              <span>Perfis de acesso principais</span>
+            </article>
+            <article class="metric-card">
+              <strong>8</strong>
+              <span>Módulos funcionais prioritários</span>
+            </article>
+            <article class="metric-card">
+              <strong>4</strong>
+              <span>Fases de entrega incremental</span>
+            </article>
+          </div>
+        </div>
+        <aside class="hero-side">
+          <section class="panel">
+            <h3>Objetivo do produto</h3>
+            <ul>
+              <li>Centralizar cursos, trilhas, avaliações, certificados e indicadores.</li>
+              <li>Dar visão operacional para RH/T&amp;D e visão tática para líderes.</li>
+              <li>Oferecer experiência simples e responsiva ao colaborador.</li>
+            </ul>
+          </section>
+          <section class="panel">
+            <h3>Referências usadas na arquitetura</h3>
+            <ul>
+              <li>LMS corporativo: catálogo, trilhas, progresso, certificado e ranking.</li>
+              <li>Dashboard SaaS: KPIs no topo, cards de pendência e filtros rápidos.</li>
+              <li>Academy interna: jornada por papel, campanhas e conteúdo por área.</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- MÓDULOS -->
+    <section class="section" id="modulos">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h3>Módulos principais</h3>
+            <p>Recursos essenciais de governança, acompanhamento e aprendizagem projetados para escalar sem retrabalho.</p>
+          </div>
+        </div>
+        <div class="features-grid">
+          <article class="feature-card"><div class="feature-icon">📚</div><div><h4>Catálogo de cursos</h4><p>Cursos por categoria, formato, carga horária, obrigatoriedade e palavra-chave.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">🧭</div><div><h4>Trilhas de aprendizagem</h4><p>Sequência de cursos por cargo, setor, onboarding, compliance ou plano anual.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">📈</div><div><h4>Indicadores</h4><p>Conclusão, atraso, nota média, horas treinadas e engajamento por equipe.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">🏅</div><div><h4>Certificados</h4><p>Geração após conclusão, validade, histórico e reemissão controlada.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">📝</div><div><h4>Avaliações</h4><p>Quiz, prova, checklist prático, nota mínima e tentativa configurável.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">🔔</div><div><h4>Notificações</h4><p>Lembretes de prazo, novos cursos, pendências e reciclagens obrigatórias.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">👥</div><div><h4>Gestão de usuários</h4><p>Perfis, permissões, vínculo com área, gestor imediato e status de acesso.</p></div></article>
+          <article class="feature-card"><div class="feature-icon">📂</div><div><h4>Biblioteca de materiais</h4><p>Vídeos, PDF, POP, políticas, anexos e links externos em um único acervo.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- PERFIS -->
+    <section class="section" id="perfis">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h3>Perfis e responsabilidades</h3>
+            <p>Separação clara de capacidades por público para evitar tela inchada e facilitar governança.</p>
+          </div>
+        </div>
+        <div class="roles-grid">
+          <article class="role-card">
+            <span class="badge">🔒 Administrador</span>
+            <h4>Controle total da plataforma</h4>
+            <p>RH, T&amp;D ou TI responsiável por cadastro, parametrização, permissões e relatórios globais.</p>
+            <ul>
+              <li>Cadastrar cursos, trilhas, categorias e instrutores.</li>
+              <li>Definir regras de obrigatoriedade, validade e reciclagem.</li>
+              <li>Gerenciar usuários, perfis, áreas e importação em lote.</li>
+              <li>Visualizar indicadores gerais e exportações completas.</li>
+            </ul>
+          </article>
+          <article class="role-card">
+            <span class="badge">📊 Gestor</span>
+            <h4>Visão da equipe e acompanhamento</h4>
+            <p>Coordenadores e líderes que acompanham aderência, atrasos e desenvolvimento do time.</p>
+            <ul>
+              <li>Ver equipe direta e trilhas obrigatórias por colaborador.</li>
+              <li>Acompanhar pendências, notas, horas treinadas e ranking.</li>
+              <li>Receber alertas de atraso e reciclagem próxima do vencimento.</li>
+              <li>Indicar cursos extras e validar conclusão prática.</li>
+            </ul>
+          </article>
+          <article class="role-card">
+            <span class="badge">💻 Colaborador</span>
+            <h4>Aprendizagem simples e objetiva</h4>
+            <p>Execução rápida no desktop ou celular, com foco em estudar, concluir e acompanhar progresso.</p>
+            <ul>
+              <li>Dashboard pessoal com cursos pendentes, em andamento e concluídos.</li>
+              <li>Acessar aulas, materiais, avaliações e certificados.</li>
+              <li>Receber recomendações e ver trilha por cargo ou área.</li>
+              <li>Filtrar por prazo, tipo de conteúdo e prioridade.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERFACE PREVIEW -->
+    <section class="section" id="preview">
+      <div class="container">
+        <div class="section-head"><div><h3>Prévia da interface</h3><p>Padrão webapp corporativo: sidebar clara, cards de KPI, listas acionáveis e foco em leitura rápida.</p></div></div>
+        <div class="admin-preview">
+          <aside class="sidebar">
+            <div class="badge" style="margin-bottom:1.25rem">📋 Menu principal</div>
+            <ul>
+              <li class="active">Dashboard</li>
+              <li>Cursos</li>
+              <li>Trilhas</li>
+              <li>Usuários</li>
+              <li>Gestores</li>
+              <li>Relatórios</li>
+              <li>Configurações</li>
+            </ul>
+          </aside>
+          <div class="dashboard">
+            <div class="dash-top">
+              <article class="mini-card"><strong>148</strong><span>Cursos publicados</span></article>
+              <article class="mini-card"><strong>87%</strong><span>Taxa média de conclusão</span></article>
+              <article class="mini-card"><strong>29</strong><span>Vencendo este mês</span></article>
+            </div>
+            <div class="dash-bottom">
+              <section class="panel">
+                <h3>Progresso por trilha</h3>
+                <div class="progress-list">
+                  <div class="progress-item"><span>Onboarding institucional</span><div class="progress-track"><div class="progress-bar" style="width:92%"></div></div></div>
+                  <div class="progress-item"><span>Segurança do trabalho</span><div class="progress-track"><div class="progress-bar" style="width:74%"></div></div></div>
+                  <div class="progress-item"><span>Atendimento humanizado</span><div class="progress-track"><div class="progress-bar" style="width:66%"></div></div></div>
+                </div>
+              </section>
+              <section class="panel">
+                <h3>Pendências críticas</h3>
+                <ul>
+                  <li>12 colaboradores com reciclagem vencendo em 7 dias.</li>
+                  <li>8 gestores sem validar treinamento prático.</li>
+                  <li>3 cursos sem instrutor vinculado.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLUXOS -->
+    <section class="section">
+      <div class="container journey">
+        <section class="panel">
+          <h3>Fluxo do administrador</h3>
+          <ul>
+            <li>Cadastra curso ou trilha com parâmetros de validade e obrigatoriedade.</li>
+            <li>Define público-alvo, prazo de conclusão e avaliação.</li>
+            <li>Publica para áreas ou colaboradores específicos.</li>
+            <li>Monitora adesão em tempo real e exporta relatórios.</li>
+          </ul>
+        </section>
+        <section class="panel">
+          <h3>Fluxo do colaborador</h3>
+          <ul>
+            <li>Recebe treinamento em destaque no painel inicial.</li>
+            <li>Consome vídeo, material e checklist de apoio.</li>
+            <li>Realiza avaliação e acompanha nota e feedback.</li>
+            <li>Emite certificado e avança na trilha.</li>
+          </ul>
+        </section>
+      </div>
+    </section>
+
+    <!-- BACKLOG -->
+    <section class="section" id="backlog">
+      <div class="container">
+        <div class="section-head"><div><h3>Tarefas divididas em partes</h3><p>Blocos de execução para facilitar o GitHub, sprints e entregas incrementais.</p></div></div>
+        <div class="tasks-grid">
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 1</span><span class="tag">Planejamento</span></div>
+            <h4>Descoberta e modelagem funcional</h4>
+            <ul>
+              <li>Definir objetivos, áreas atendidas e regras de treinamento obrigatório.</li>
+              <li>Mapear perfis: admin, gestor, colaborador e permissões detalhadas.</li>
+              <li>Listar entidades: usuário, curso, trilha, aula, avaliação, certificado, notificação.</li>
+              <li>Desenhar fluxos e critérios de sucesso do MVP.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 2</span><span class="tag">UX / UI</span></div>
+            <h4>Arquitetura de telas e protótipo</h4>
+            <ul>
+              <li>Criar sitemap e wireframes do portal público e áreas autenticadas.</li>
+              <li>Definir design system, sidebar, cards, tabelas e estados de progresso.</li>
+              <li>Prototipar dashboard admin, dashboard gestor e portal colaborador.</li>
+              <li>Validar responsividade e hierarquia visual antes do backend.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 3</span><span class="tag">Backend</span></div>
+            <h4>Base técnica e autenticação</h4>
+            <ul>
+              <li>Configurar autenticação, sessão e controle de acesso por perfil.</li>
+              <li>Criar banco com tabelas e relacionamentos do domínio de treinamento.</li>
+              <li>Implementar APIs para cursos, trilhas, matrículas, progresso e avaliações.</li>
+              <li>Preparar upload de materiais e emissão de certificados.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 4</span><span class="tag">Admin</span></div>
+            <h4>Módulo administrativo</h4>
+            <ul>
+              <li>Cadastro de usuários, áreas, cargos, cursos e trilhas.</li>
+              <li>Filtros, status, importação em lote e painel de indicadores.</li>
+              <li>Parâmetros de validade, recorrência, aprovação e notificações.</li>
+              <li>Relatórios por período, área, curso, gestor e colaborador.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 5</span><span class="tag">Gestor</span></div>
+            <h4>Módulo gerencial</h4>
+            <ul>
+              <li>Painel da equipe com indicadores e pendências em destaque.</li>
+              <li>Visão por colaborador, trilha, prazo, nota e cursos vencendo.</li>
+              <li>Registro de feedback, cobrança e validação prática.</li>
+              <li>Recomendação de cursos complementares para o time.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 6</span><span class="tag">Colaborador</span></div>
+            <h4>Portal do colaborador</h4>
+            <ul>
+              <li>Página inicial com próximos treinamentos, histórico e certificados.</li>
+              <li>Player de conteúdo: vídeo, PDF, anexos e checklist.</li>
+              <li>Execução de avaliação, nota, retomada de progresso e conclusão.</li>
+              <li>Área pessoal com trilhas concluídas e carga horária acumulada.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 7</span><span class="tag">Automação</span></div>
+            <h4>Alertas e inteligência operacional</h4>
+            <ul>
+              <li>Disparar lembretes de prazo e vencimento por perfil.</li>
+              <li>Criar réguas de comunicação para onboarding e reciclagens.</li>
+              <li>Programar recomendações por setor, cargo ou trilha.</li>
+              <li>Gerar painéis com gargalos e risco de não conformidade.</li>
+            </ul>
+          </article>
+          <article class="task-card">
+            <div class="tag-row"><span class="tag">Parte 8</span><span class="tag">Go-live</span></div>
+            <h4>Testes, dados e implantação</h4>
+            <ul>
+              <li>Validar permissões, responsividade, performance e trilhas end-to-end.</li>
+              <li>Subir carga inicial de usuários, cursos e materiais.</li>
+              <li>Homologação com RH, gestores e usuários finais.</li>
+              <li>Documentação operacional e plano de evolução.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- FASES -->
+    <section class="section" id="fases">
+      <div class="container">
+        <div class="section-head"><div><h3>Fases recomendadas</h3><p>Entrega por maturidade funcional para evitar projeto grande demais no início.</p></div></div>
+        <div class="timeline">
+          <article class="timeline-card"><h4>Fase 1 &mdash; MVP</h4><p>Autenticação, perfis, catálogo, cursos, trilhas simples, progresso e dashboard básico.</p><ul><li>Meta: plataforma funcional rapidamente.</li></ul></article>
+          <article class="timeline-card"><h4>Fase 2 &mdash; Gestão</h4><p>Relatórios, dashboards gerenciais, cobranças, filtros e validade de treinamentos.</p><ul><li>Meta: dar controle à liderança.</li></ul></article>
+          <article class="timeline-card"><h4>Fase 3 &mdash; Escala</h4><p>Importação em lote, automações, notificações e certificados com regras avançadas.</p><ul><li>Meta: reduzir esforço operacional.</li></ul></article>
+          <article class="timeline-card"><h4>Fase 4 &mdash; Inteligência</h4><p>Recomendação de cursos, ranking, metas por área e visão estratégica de capacitação.</p><ul><li>Meta: transformar dados em decisão.</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIMEIROS PASSOS -->
+    <section class="section">
+      <div class="container">
+        <div class="section-head"><div><h3>Primeiros passos práticos</h3><p>Ordem recomendada para transformar isso em desenvolvimento real no repositório.</p></div></div>
+        <div class="steps-grid">
+          <article class="step-card"><div class="step-number">1</div><h4>Fechar escopo do MVP</h4><p>Congele telas e regras mínimas para não abrir muitas frentes ao mesmo tempo.</p></article>
+          <article class="step-card"><div class="step-number">2</div><h4>Montar backlog por issue</h4><p>Crie épicos para admin, gestor, colaborador, autenticação, cursos, trilhas e relatórios.</p></article>
+          <article class="step-card"><div class="step-number">3</div><h4>Iniciar com dados reais</h4><p>Use exemplos de cursos e perfis da operação para validar cedo a utilidade da plataforma.</p></article>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-box">
+      <div><strong>Plataforma de Treinamentos</strong><p>Conceito de produto com foco em operação corporativa e gestão de capacitação.</p></div>
+      <div><p>Pronto para evoluir com Vue, React ou stack full web com API e banco relacional.</p></div>
+    </div>
+  </footer>
+
+  <script>
+    (function(){
+      const root = document.documentElement;
+      const toggle = document.querySelector('[data-theme-toggle]');
+      let theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.setAttribute('data-theme', theme);
+      const paint = () => { toggle.innerHTML = theme === 'dark' ? '&#x2600;&#xFE0F;' : '&#x1F319;'; toggle.setAttribute('aria-label', 'Mudar para tema ' + (theme === 'dark' ? 'claro' : 'escuro')); };
+      paint();
+      toggle.addEventListener('click', () => { theme = theme === 'dark' ? 'light' : 'dark'; root.setAttribute('data-theme', theme); paint(); });
+    })();
+  </script>
+</body>
+</html>
